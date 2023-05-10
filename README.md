@@ -1,3 +1,31 @@
+# SAM distillation
+
+## Setup
+### Create a virtual environment
+``` 
+python3.10 -m venv .venv
+```
+```
+source .venv/bin/activate
+```
+Install dependencies
+```
+pip install opencv-python matplotlib numpy
+```
+```
+pip3 install torch torchvision torchaudio
+```
+```
+pip install git+https://github.com/facebookresearch/segment-anything.git
+```
+### Download dataset
+Place the dataset in the ``` dataset ``` folder.
+
+https://drive.google.com/file/d/12IjUC6eAiLBX67jW57YQMNRVqUGvTZkX/view
+
+The resulting structure should be ``` dataset/ReDWeb_V1/Imgs/*.jpg ``` and ``` dataset/ReDWeb_V1/RDs/*.png ```
+
+
 # Knowledge Distillation for UNet
 
 An implementation of Knowledge distillation for segmentation, to train a small (student) UNet from a larger (teacher) UNet thereby reducing the size of the network while achieving performance similar to the heavier model.

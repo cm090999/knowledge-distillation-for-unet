@@ -2,7 +2,7 @@ import glob
 import torch
 import dataset
 import numpy as np
-from utils import *
+# from utils import *
 from unet import UNet
 from loss import loss_fn_kd
 from metrics import dice_loss
@@ -28,7 +28,7 @@ def fetch_teacher_outputs(teacher, train_loader):
             '''img = img[0, :, :, :, :]
             gt = gt[0, :, :, :, :]'''
             if torch.cuda.is_available():
-                img = img.cuda(async = True)
+                img = img.cuda()
             img = Variable(img)
 
             output = teacher(img)
@@ -106,11 +106,11 @@ if __name__ == "__main__":
     scheduler = StepLR(optimizer, step_size = 100, gamma = 0.2)
 
     #load teacher and student model
-    teacher.load_state_dict(torch.load(teacher_weights))
+    # teacher.load_state_dict(torch.load(teacher_weights))
     #student.load_state_dict(torch.load(student_weights))
 
     #NV: add val folder
-    train_list = glob.glob('/home/nirvi/Internship_2020/Carvana dataset/train/train1/*jpg')
+    train_list = glob.glob('./dataset/ReDWeb_V1/*jpg')
     val_list = glob.glob('/home/nirvi/Internship_2020/Carvana dataset/val/val1/*jpg')
 
     tf = transforms.Compose([
@@ -154,7 +154,6 @@ if __name__ == "__main__":
 
 
         #if val_metric is best, add checkpoint
-
         torch.save(student.state_dict(), 'checkpoints/0.9/16/CP{}.pth'.format(epoch+1))
         print("Checkpoint {} saved!".format(epoch+1))
         scheduler.step()
