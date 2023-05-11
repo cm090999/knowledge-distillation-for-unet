@@ -18,12 +18,23 @@ pip3 install torch torchvision torchaudio
 ```
 pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
+```
+pip install -U scikit-learn
+```
+
 ### Download dataset
 Place the dataset in the ``` dataset ``` folder.
 
 https://drive.google.com/file/d/12IjUC6eAiLBX67jW57YQMNRVqUGvTZkX/view
 
 The resulting structure should be ``` dataset/ReDWeb_V1/Imgs/*.jpg ``` and ``` dataset/ReDWeb_V1/RDs/*.png ```
+
+###
+
+Download the SAM weights and place themn in the folder ``` checkpoint ```
+
+https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
+
 
 
 # Knowledge Distillation for UNet

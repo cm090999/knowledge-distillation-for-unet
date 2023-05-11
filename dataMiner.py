@@ -1,5 +1,6 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 from data_augmentation import load_data, split_squares
 import random
 import numpy as np
@@ -8,7 +9,7 @@ from torchvision.io import read_image
 import matplotlib.pyplot as plt
 import cv2
 
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+from sam import SamModel
 
 class listDataset(Dataset):
 
@@ -53,18 +54,28 @@ class listDataset(Dataset):
         return self.nSamples
     
 class ReDWeb_V1_Dataset(Dataset):
-    def __init__(self, datasetPath: str, val_fraction = 0.1) -> None:
+    def __init__(self, datasetPath: str, val_fraction = 0.1, transform = None) -> None:
         super().__init__()
 
         self.datasetPath = datasetPath
         self.depthPath = datasetPath + '/RDs/'
+        self.transform = transform
 
         self.images = sorted([os.path.join(self.depthPath, img) for img in os.listdir(self.depthPath)])
 
     def __getitem__(self, index):
         imagepth = self.images[index]
-        image = read_image(imagepth)
+        image_1 = read_image(imagepth)
+
+        image = image_1.repeat(3, 1, 1)
+
+        if self.transform:
+            image = self.transform(image)
+
         return image
+    
+    def __len__(self):
+        return len(self.images)
     
 
 
@@ -88,28 +99,38 @@ def show_anns(anns):
 
          
 if __name__ == "__main__":
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    train_transforms = transforms.Compose([ 
+                                            # transforms.ToTensor(),
+                                            # transforms.ConvertImageDtype(torch.float32),
+                                            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                                            transforms.Resize(size=(320, 240),antialias=False)
+                                           ])
+    
     datasetPath = 'dataset/ReDWeb_V1'
     checkpoint_path = "checkpoint/sam_vit_b_01ec64.pth"
-    depth_dataset = ReDWeb_V1_Dataset(datasetPath=datasetPath)
+    depth_dataset = ReDWeb_V1_Dataset(datasetPath=datasetPath, transform=train_transforms)
 
     testimg = depth_dataset[0].detach().numpy()[0,:,:]
     testimg_3 = cv2.merge((testimg,testimg,testimg))
 
-    sam = sam_model_registry["vit_b"](checkpoint=checkpoint_path)
-    mask_generator = SamAutomaticMaskGenerator(model=sam,
-                                                points_per_side=32,
-                                                pred_iou_thresh=0.96,
-                                                stability_score_thresh=0.92,
-                                                crop_n_layers=1,
-                                                crop_n_points_downscale_factor=2,
-                                                min_mask_region_area=100,  # Requires open-cv to run post-processing)
-                                                )
-    masks = mask_generator.generate(testimg_3)
+    sam = SamModel(checkpoint_path=checkpoint_path)
+    
+    dataloader = DataLoader(dataset=depth_dataset,
+                            batch_size=2,
+                            shuffle=True
+                            )
+    
+    for i,batch in enumerate(dataloader):
+        print('Running batch # ' + str(i) + " of " + str(len(dataloader)))
+        masks = sam.runBatch(batch=batch,path='dataset/samMasks')
 
-    plt.figure(figsize=(20,20))
-    plt.imshow(testimg_3)
-    show_anns(masks)
-    plt.axis('off')
-    plt.show()
+        # image0 = batch[0,:,:,:].numpy().T
+        # plt.imshow(image0)
+        # plt.show()
+        # plt.imshow(masks[0])
+        # plt.show()
 
     print("end")
