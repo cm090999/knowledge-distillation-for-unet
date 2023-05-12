@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset, DataLoader
+import torch
 import os
 from torchvision.io import read_image
 
@@ -7,8 +8,8 @@ class SAM_Dataset(Dataset):
     def __init__(self,dataPath, transform = None) -> None:
         super().__init__()
 
-        self.pathInput = dataPath + '/masks'
-        self.pathMasks = dataPath + '/inputs'
+        self.pathInput = dataPath + '/inputs'
+        self.pathMasks = dataPath + '/masks'
 
         self.transform = transform
 
@@ -21,12 +22,28 @@ class SAM_Dataset(Dataset):
 
         input = read_image(self.inputs[index])
         output = read_image(self.outputs[index])[0,:,:].unsqueeze(0)
+        _,w,h = output.size()
+
+        # Convert input to single channel
+        input = input[0,:,:].unsqueeze(0)
+
 
         if self.transform:
             input = self.transform(input)
 
+        # Expand output to include a channel for each class
+        # Number of channels = Number of classes + 1
+        output_c = torch.zeros((11,w,h),dtype=torch.uint8)
+        n = 11
+        for i in range(n):
+            output_c[i,:,:] = output == i 
 
-        return input, output
+        output_c = output_c[1:,:,:]
+
+        output_c = torch.swapaxes(output_c,1,2)
+
+
+        return input, output_c
     
     def __len__(self):
         return len(self.inputs)

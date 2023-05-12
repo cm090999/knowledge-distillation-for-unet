@@ -30,7 +30,6 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         x = self.outc(x)
         return x
-        #return x
 
 '''class UNet16(nn.Module):
     def __init__(self, n_channels, n_classes):
