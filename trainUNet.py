@@ -6,6 +6,10 @@ from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import train_test_split
 from torchvision import transforms
 
+# from backboned_unet import Unet
+import segmentation_models_pytorch as smp
+
+
 
 # https://discuss.pytorch.org/t/how-to-split-dataset-into-test-and-validation-sets/33987/4
 def train_val_dataset(dataset, val_split=0.25):
@@ -17,25 +21,38 @@ def train_val_dataset(dataset, val_split=0.25):
 
 if __name__ == "__main__":
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+    # studentModel = Unet(backbone_name='resnet50', classes=10)
+
     # Define student network to train 
     channel_depth = 16
-    n_channels = 1
+    n_channels = 3
     n_classes = 10
-    studentModel = unet_model.UNet(channel_depth=channel_depth,n_channels=n_channels,n_classes=n_classes)
+    # studentModel = unet_model.UNet(channel_depth=channel_depth,n_channels=n_channels,n_classes=n_classes)
+    # studentModel = unet_model.UNet_ResNet34()
+    studentModel = smp.Unet('resnet18', 
+                            classes=10).to(device=device)
+    # studentModel = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
+    #                         n_channels=n_channels, n_classes=n_classes, channel_depth=32, pretrained=True)
 
     # Define Transformations
-    train_transforms = transforms.Compose([ 
+    common_transforms = transforms.Compose([
+                                            transforms.RandomResizedCrop(size=(320, 256),antialias=False)
+                                           ])
+    input_transforms = transforms.Compose([ 
                                             # transforms.ToTensor(),
                                             transforms.ConvertImageDtype(torch.float32),
                                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                                             transforms.Normalize(mean=[1], std=[1]),
-                                            transforms.RandomResizedCrop(size=(320, 240),antialias=False)
-                                           ]) 
+                                            transforms.RandomAdjustSharpness(0.5)
+                                           ])
 
     # Get dataset
     validationFraction = 0.1
     datasetpath = 'dataset/samMasks'
-    dataset = SAM_Dataset(dataPath=datasetpath, transform=train_transforms)
+    dataset = SAM_Dataset(dataPath=datasetpath, common_transform=common_transforms,input_transform=input_transforms)
     dataset_split = train_val_dataset(dataset,val_split=validationFraction)
     trainingSet = dataset_split['train']
     validationSet = dataset_split['val']
@@ -43,7 +60,7 @@ if __name__ == "__main__":
 
     # Define Training parameters
     n_epochs = 10
-    batchsize = 8
+    batchsize = 32
     lr = 1e-3
 
     # Get dataloaders
@@ -58,6 +75,7 @@ if __name__ == "__main__":
 
     # Define Cost function and optimizer
     optimizer = torch.optim.Adam(studentModel.parameters(), lr=lr)
+    loss_function = loss.pixel_wise_loss
 
 
     # Main training loop
@@ -71,12 +89,12 @@ if __name__ == "__main__":
         avg_tr_loss = 0
         batches_tr = 0
         for i, batch in enumerate(trainingLoader):
-            input = batch[0] 
-            gt_output = batch[1]
+            input = batch[0].to(device)
+            gt_output = batch[1].to(device)
             output = studentModel(input)
 
             # Calculate loss
-            loss_1 = loss.pixel_wise_loss(student_output=output,teacher_output=gt_output)
+            loss_1 = loss_function(output,gt_output)
             # pixelWise_loss = 
             # coherence_loss = 
 
@@ -88,12 +106,12 @@ if __name__ == "__main__":
             # performs updates using calculated gradients
             optimizer.step()
 
-            avg_tr_loss += loss_1
+            avg_tr_loss += loss_1.item()
             batches_tr += 1
 
         
 
-        print("Average Training Loss: " + str((avg_tr_loss/batches_tr).item()))
+        print("Average Training Loss: " + str((avg_tr_loss/batches_tr)))
 
 
 
@@ -103,17 +121,18 @@ if __name__ == "__main__":
         avg_val_loss = 0
         batches = 0
         for i, batch in enumerate(validationLoader):
-            input = batch[0]
-            gt_output = batch[1]
+            input = batch[0].to(device)
+            gt_output = batch[1].to(device)
             output = studentModel(input)
 
             # Calculate loss
-            loss_1 = loss.pixel_wise_loss(student_output=output,teacher_output=gt_output)
+            # loss_1 = loss.pixel_wise_loss(student_output=output,teacher_output=gt_output)
+            loss_1 = loss_function(output,gt_output)
 
-            avg_val_loss += loss_1
+            avg_val_loss += loss_1.item()
             batches += 1
 
-        print("Average Validation Loss: " + str((avg_val_loss/batches).item()))
+        print("Average Validation Loss: " + str(avg_val_loss/batches))
 
         # Save model parameters if validation cost is best
         if avg_val_loss < best_val:

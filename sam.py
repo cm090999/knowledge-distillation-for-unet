@@ -16,10 +16,10 @@ class SamModel():
         self.mask_generator = SamAutomaticMaskGenerator(model=self.sam,
                                                     points_per_side=32,
                                                     pred_iou_thresh=0.96,
-                                                    stability_score_thresh=0.92,
+                                                    stability_score_thresh=0.95,
                                                     crop_n_layers=1,
                                                     crop_n_points_downscale_factor=2,
-                                                    min_mask_region_area=100,  # Requires open-cv to run post-processing)
+                                                    min_mask_region_area=2500,  # Requires open-cv to run post-processing)
                                                     )
         
         return
@@ -41,7 +41,13 @@ class SamModel():
 
         for i in range(batch_size):
             image = batch[i,:,:,:].numpy().T
-            masks = self.mask_generator.generate(image)
+            try:
+                masks = self.mask_generator.generate(image)
+            except:
+                print("Exception")
+                continue
+            if len(masks) == 0:
+                continue
             mask_img = self.createSingleIntMask(masks=masks)
             maskList.append(mask_img)
 

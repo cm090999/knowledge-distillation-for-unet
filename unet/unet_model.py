@@ -1,6 +1,8 @@
 # full assembly of the sub-parts to form the complete net
 
 import torch.nn.functional as F
+import torchvision
+
 
 from .unet_parts import *
 
@@ -59,3 +61,12 @@ class UNet(nn.Module):
         return F.sigmoid(x)
         #return x
 '''
+
+class UNet_ResNet34(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        backbone = torchvision.models.resnet34(weights=torchvision.models.ResNet34_Weights.DEFAULT)
+        self.encoder = nn.Sequential(*list(backbone.children())[:-2])
+
+        return

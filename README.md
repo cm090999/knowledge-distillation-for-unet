@@ -21,6 +21,9 @@ pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
 pip install -U scikit-learn
 ```
+```
+$ pip install git+https://github.com/qubvel/segmentation_models.pytorch
+```
 
 ### Download dataset
 Place the dataset in the ``` dataset ``` folder.
@@ -28,6 +31,10 @@ Place the dataset in the ``` dataset ``` folder.
 https://drive.google.com/file/d/12IjUC6eAiLBX67jW57YQMNRVqUGvTZkX/view
 
 The resulting structure should be ``` dataset/ReDWeb_V1/Imgs/*.jpg ``` and ``` dataset/ReDWeb_V1/RDs/*.png ```
+
+Get the generated dataset:
+
+https://polybox.ethz.ch/index.php/s/LKOPmY368zri5P8
 
 ###
 
