@@ -1,5 +1,7 @@
 from unet import unet_model
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from samDataset import SAM_Dataset
 import loss
 from torch.utils.data import Subset, DataLoader
@@ -8,6 +10,59 @@ from torchvision import transforms
 
 # from backboned_unet import Unet
 import segmentation_models_pytorch as smp
+
+class UnorderedMultiLabelImageSegmentationLoss(nn.Module):
+    def __init__(self, num_iters=20, reg=0.1):
+        super().__init__()
+        self.bce_loss = nn.BCEWithLogitsLoss(reduction='none')
+        self.num_iters = num_iters
+        self.reg = reg
+
+    def sinkhorn(self, Q):
+        Q = Q - Q.max(dim=1, keepdim=True).values
+        Q = torch.exp(torch.clamp(Q / self.reg, -10, 10))
+        Q = Q / (Q.sum(dim=1, keepdim=True) + 1e-8)
+        K, _ = Q.shape
+
+        u = torch.zeros_like(Q)
+        r = torch.ones((K,)).to(Q.device) / K
+        c = torch.ones((K,)).to(Q.device) / K
+
+        for _ in range(self.num_iters):
+            u = torch.sum(Q, dim=1) + 1e-8
+            Q = Q * (r / u).view((K, 1))
+            Q = Q * (c / (torch.sum(Q, dim=0) + 1e-8)).view((1, K))
+
+        return Q
+
+    def forward(self, preds, targets):
+        batch_size, num_classes, hight, width = targets.shape
+
+        total_loss = 0
+
+        for batch in range(batch_size):
+            cost_matrix = []
+
+            for pred_class in range(num_classes):
+                pred_for_class = preds[batch, pred_class, :, :]
+
+                class_losses = []
+
+                for target_class in range(num_classes):
+                    target_for_class = targets[batch, target_class, :, :]
+
+                    loss = self.bce_loss(pred_for_class.float(), target_for_class.float())
+                    class_losses.append(loss.sum())
+                
+                class_losses = torch.stack(class_losses)
+                cost_matrix.append(class_losses)
+
+            cost_matrix = torch.stack(cost_matrix)
+
+            P = self.sinkhorn(-cost_matrix)  # compute assignment matrix using sinkhorn
+            total_loss = total_loss + torch.sum(P * cost_matrix)  # compute total loss
+
+        return total_loss / (hight * width)
 
 
 
@@ -18,6 +73,21 @@ def train_val_dataset(dataset, val_split=0.25):
     datasets['train'] = Subset(dataset, train_idx)
     datasets['val'] = Subset(dataset, val_idx)
     return datasets
+
+def convert_to_binary_mask(output):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # output is a tensor of shape [batch_size, num_classes, height, width]
+    _, max_indices = output.max(dim=1)
+    # max_indices is now of shape [batch_size, height, width]
+    # and contains the index of the max class at each pixel
+
+    # Now we'll convert max_indices to a binary mask for each class
+    batch_size, height, width = max_indices.shape
+    num_classes = output.shape[1]
+    binary_masks = torch.zeros(batch_size, num_classes, height, width, device=output.device)
+    binary_masks.scatter_(1, max_indices.unsqueeze(1), 1).to(device)
+    return binary_masks
 
 if __name__ == "__main__":
 
@@ -59,8 +129,8 @@ if __name__ == "__main__":
 
 
     # Define Training parameters
-    n_epochs = 20
-    batchsize = 32
+    n_epochs = 10
+    batchsize = 16
     lr = 1e-3
 
     # Get dataloaders
@@ -75,7 +145,7 @@ if __name__ == "__main__":
 
     # Define Cost function and optimizer
     optimizer = torch.optim.Adam(studentModel.parameters(), lr=lr)
-    loss_function = loss.loss_fn_kd
+    loss_function = UnorderedMultiLabelImageSegmentationLoss(num_iters=20, reg=0.1)
 
 
     # Main training loop
@@ -92,6 +162,7 @@ if __name__ == "__main__":
             input = batch[0].to(device)
             gt_output = batch[1].to(device)
             output = studentModel(input)
+            #binarised_output = convert_to_binary_mask(output)
 
             # Calculate loss
             loss_1 = loss_function(output,gt_output)
