@@ -102,7 +102,7 @@ if __name__ == "__main__":
     n_classes = 10
     # studentModel = unet_model.UNet(channel_depth=channel_depth,n_channels=n_channels,n_classes=n_classes)
     # studentModel = unet_model.UNet_ResNet34()
-    studentModel = smp.Unet('resnet18', 
+    studentModel = smp.Unet('vgg16', 
                             classes=10).to(device=device)
     # studentModel = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
     #                         n_channels=n_channels, n_classes=n_classes, channel_depth=32, pretrained=True)
