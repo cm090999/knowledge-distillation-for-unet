@@ -7,6 +7,7 @@ import loss
 from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import train_test_split
 from torchvision import transforms
+from tqdm import tqdm
 
 # from backboned_unet import Unet
 import segmentation_models_pytorch as smp
@@ -63,7 +64,6 @@ class UnorderedMultiLabelImageSegmentationLoss(nn.Module):
             total_loss = total_loss + torch.sum(P * cost_matrix)  # compute total loss
 
         return total_loss / (hight * width)
-
 
 
 # https://discuss.pytorch.org/t/how-to-split-dataset-into-test-and-validation-sets/33987/4
@@ -150,6 +150,7 @@ if __name__ == "__main__":
 
     # Main training loop
     best_val = 100000
+
     for epoch in range(n_epochs):
         print("Running Epoch " + str(epoch+1) + " of " + str(n_epochs))
 
@@ -158,27 +159,35 @@ if __name__ == "__main__":
         studentModel.train()
         avg_tr_loss = 0
         batches_tr = 0
-        for i, batch in enumerate(trainingLoader):
-            input = batch[0].to(device)
-            gt_output = batch[1].to(device)
-            output = studentModel(input)
-            #binarised_output = convert_to_binary_mask(output)
 
-            # Calculate loss
-            loss_1 = loss_function(output,gt_output)
-            # pixelWise_loss = 
-            # coherence_loss = 
+        tqdm_console = tqdm(total=len(trainingLoader),desc='Train')
 
-            # Backpropagation 
-            # clear previous gradients, compute gradients of all variables wrt loss
-            optimizer.zero_grad()
-            loss_1.backward()
+        with tqdm_console:
+            tqdm_console.set_description_str('Epoch: {:03d}|{:03d}'.format(epoch+1,n_epochs))
+            for i, batch in enumerate(trainingLoader):
+                input = batch[0].to(device)
+                gt_output = batch[1].to(device)
+                output = studentModel(input)
+                #binarised_output = convert_to_binary_mask(output)
 
-            # performs updates using calculated gradients
-            optimizer.step()
+                # Calculate loss
+                loss_1 = loss_function(output,gt_output)
+                # pixelWise_loss = 
+                # coherence_loss = 
 
-            avg_tr_loss += loss_1.item()
-            batches_tr += 1
+                # Backpropagation 
+                # clear previous gradients, compute gradients of all variables wrt loss
+                optimizer.zero_grad()
+                loss_1.backward()
+
+                # performs updates using calculated gradients
+                optimizer.step()
+
+                avg_tr_loss += loss_1.item()
+                batches_tr += 1
+
+                tqdm_console.set_postfix_str("loss:{:.3f}".format(loss_1.item()))
+                tqdm_console.update()
 
         
 
