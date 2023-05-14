@@ -45,7 +45,7 @@ if __name__ == "__main__":
                                             # transforms.ToTensor(),
                                             transforms.ConvertImageDtype(torch.float32),
                                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                                            transforms.Normalize(mean=[1], std=[1]),
+                                            # transforms.Normalize(mean=[1], std=[1]),
                                             transforms.RandomAdjustSharpness(0.5)
                                            ])
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
 
     # Define Training parameters
-    n_epochs = 10
+    n_epochs = 20
     batchsize = 32
     lr = 1e-3
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     # Define Cost function and optimizer
     optimizer = torch.optim.Adam(studentModel.parameters(), lr=lr)
-    loss_function = loss.pixel_wise_loss
+    loss_function = loss.loss_fn_kd
 
 
     # Main training loop

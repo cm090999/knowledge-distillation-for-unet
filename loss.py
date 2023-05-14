@@ -3,10 +3,10 @@ import torch.nn.functional as F
 from metrics import dice_loss
 #NOTE: all verifications for the size is left
 
-T = 5
-alpha = 0.9
+# T = 5
+# alpha = 0.9
 
-def loss_fn_kd(student_output, teacher_output, gt ):
+def loss_fn_kd(student_output, teacher_output, gt, alpha = 0.5):
     '''student_output = student_output.round() 
     student_output[student_output<0] = 0
     gt = torch.clamp(gt, min = 0, max = 1)
@@ -28,7 +28,7 @@ def general_loss(student_output, gt):
     loss = dice_loss(student_output, gt)
     return loss
 
-def pixel_wise_loss(student_output, teacher_output):
+def pixel_wise_loss(student_output, teacher_output, T=5):
     N,C,W,H = student_output.shape
 
     #what would happen if we use softmax?

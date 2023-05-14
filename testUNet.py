@@ -9,6 +9,8 @@ from samDataset import ROS_Data
 
 import segmentation_models_pytorch as smp
 
+from sam import SamModel
+
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -30,7 +32,7 @@ if __name__ == "__main__":
                                             # transforms.ToTensor(),
                                             transforms.ConvertImageDtype(torch.float32),
                                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                                            transforms.Normalize(mean=[1], std=[1]),
+                                            # transforms.Normalize(mean=[1], std=[1]),
                                             transforms.RandomResizedCrop(size=(320, 256),antialias=False)
                                            ]) 
 
@@ -43,9 +45,15 @@ if __name__ == "__main__":
                             batch_size=1,
                             shuffle=False)
     
+    checkpoint_path_sam = "checkpoint/sam_vit_b_01ec64.pth"
+
+    sam = SamModel(checkpoint_path=checkpoint_path_sam)
+    
     for i,batch in enumerate(testloader):
         print("Running Batch " +str(i))
         output = studentModel(batch.to(device))
+
+        sam_gt = sam.runBatch((batch * 255).type(torch.uint8))[0]
 
         logits = output.permute(0, 2, 3, 1)  # Reshape to (batch_size, height, width, 10)
 
@@ -54,15 +62,22 @@ if __name__ == "__main__":
 
         origin_img = np.asarray(batch.squeeze().detach().cpu().numpy().T)
         masked_img = np.asarray(instance_masks.squeeze().detach().cpu().numpy().T)
+        sam_gt_img = np.asarray(sam_gt)
 
         # Plot the images side by side
-        fig, axes = plt.subplots(1, 2)
+        fig, axes = plt.subplots(1, 3)
         axes[0].imshow(origin_img)
         axes[0].set_title("Original Image")
         axes[0].axis("off")
+
         axes[1].imshow(masked_img)
         axes[1].set_title("Masked Image")
         axes[1].axis("off")
+
+        axes[2].imshow(sam_gt_img)
+        axes[2].set_title("Mask with Sam")
+        axes[2].axis("off")
+
         plt.show()
 
         # Wait for the plot window to be closed
