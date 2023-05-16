@@ -20,9 +20,10 @@ def plot_images(image1, image2):
 
     plt.show()
 
-def process_images(folder1, folder2):
+def process_images(folder1, folder2, imgnumber = 0):
+    startwithvalue = str(imgnumber).zfill(5)
     for filename in os.listdir(folder1):
-        if filename.endswith('.png') and filename.startswith('02002'):
+        if filename.endswith('.png') and filename.startswith(startwithvalue):
             image_path1 = os.path.join(folder1, filename)
             image_path2 = os.path.join(folder2, filename)
 
@@ -36,9 +37,16 @@ def process_images(folder1, folder2):
 
                 # Plot images
                 plot_images(image1, image2)
+                pass
+
 
 # Specify the folders containing the images
-folder1 = 'dataset/samMasks/inputs'
-folder2 = 'dataset/samMasks/masks'
-
+folder1 = 'dataset/diodeMasks/inputs'
+folder2 = 'dataset/diodeMasks/masks'
 process_images(folder1, folder2)
+for i in range(100):
+    process_images(folder1=folder1,
+                   folder2=folder2,
+                   imgnumber=i)
+    
+    plt.waitforbuttonpress()

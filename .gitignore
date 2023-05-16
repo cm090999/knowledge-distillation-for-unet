@@ -5,3 +5,4 @@ checkpoint
 .vscode
 ./backboned-unet
 backboned*
+diode_dataset_loader/diode_meta.json

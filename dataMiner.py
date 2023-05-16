@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import cv2
 
 from sam import SamModel
+from diode_dataset_loader import diode_dataset
 
 class listDataset(Dataset):
 
@@ -97,7 +98,7 @@ def show_anns(anns):
 
 
 
-         
+        
 if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -109,13 +110,25 @@ if __name__ == "__main__":
                                             transforms.Resize(size=(320, 240),antialias=False)
                                            ])
     
-    datasetPath = 'dataset/ReDWeb_V1'
+    # Diode dataset
+    dataset_path = 'dataset/DIODE'
+    meta_name = 'diode_dataset_loader/diode_meta.json'
+    depth_dataset = diode_dataset.DIODE_Depth(meta_fname=meta_name,
+                    data_root=dataset_path,
+                    splits=['train','val'],
+                    scene_types=['outdoor', 'indoors'],
+                    transform=train_transforms)
+    # testimg = depth_dataset[0]
+    
+    # ReDWeb_V1 dataset
+    # datasetPath = 'dataset/ReDWeb_V1'
+    # depth_dataset = ReDWeb_V1_Dataset(datasetPath=datasetPath, transform=train_transforms)
+
+
+    # testimg = depth_dataset[0].detach().numpy()[0,:,:]
+    # testimg_3 = cv2.merge((testimg,testimg,testimg))
+
     checkpoint_path = "checkpoint/sam_vit_b_01ec64.pth"
-    depth_dataset = ReDWeb_V1_Dataset(datasetPath=datasetPath, transform=train_transforms)
-
-    testimg = depth_dataset[0].detach().numpy()[0,:,:]
-    testimg_3 = cv2.merge((testimg,testimg,testimg))
-
     sam = SamModel(checkpoint_path=checkpoint_path)
     
     dataloader = DataLoader(dataset=depth_dataset,
@@ -125,7 +138,7 @@ if __name__ == "__main__":
     
     for i,batch in enumerate(dataloader):
         print('Running batch # ' + str(i) + " of " + str(len(dataloader)))
-        masks = sam.runBatch(batch=batch,path='dataset/samMasks')
+        masks = sam.runBatch(batch=batch,path='dataset/diodeMasks')
 
         # image0 = batch[0,:,:,:].numpy().T
         # plt.imshow(image0)
