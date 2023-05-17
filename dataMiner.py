@@ -133,7 +133,7 @@ if __name__ == "__main__":
     
     dataloader = DataLoader(dataset=depth_dataset,
                             batch_size=2,
-                            shuffle=True
+                            shuffle=False
                             )
     
     for i,batch in enumerate(dataloader):

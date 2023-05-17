@@ -1,6 +1,6 @@
 import torch
 from torchvision import transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -12,6 +12,7 @@ from samDataset import ROS_Data
 import segmentation_models_pytorch as smp
 
 from sam import SamModel
+from samDataset import SAM_Dataset
 
 def apply_filter(tensor):
     # Define the filter size
@@ -54,7 +55,7 @@ if __name__ == "__main__":
                                             transforms.ConvertImageDtype(torch.float32),
                                             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                                             # transforms.Normalize(mean=[1], std=[1]),
-                                            transforms.RandomResizedCrop(size=(320, 256),antialias=False)
+                                            transforms.Resize(size=(320, 256),antialias=False)
                                            ]) 
 
     # Get test dataset

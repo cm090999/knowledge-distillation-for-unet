@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from samDataset import SAM_Dataset
+from diode_dataset_loader import diode_dataset
 import loss
 from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import train_test_split
@@ -11,6 +12,9 @@ from tqdm import tqdm
 
 # from backboned_unet import Unet
 import segmentation_models_pytorch as smp
+# loss functions
+import pytorch_3dunet.pytorch3dunet.unet3d.losses as lsses
+
 
 class UnorderedMultiLabelImageSegmentationLoss(nn.Module):
     def __init__(self, num_iters=20, reg=0.1):
@@ -109,7 +113,7 @@ if __name__ == "__main__":
 
     # Define Transformations
     common_transforms = transforms.Compose([
-                                            transforms.RandomResizedCrop(size=(320, 256),antialias=False)
+                                            transforms.Resize(size=(320, 256),antialias=False)
                                            ])
     input_transforms = transforms.Compose([ 
                                             # transforms.ToTensor(),
@@ -121,8 +125,16 @@ if __name__ == "__main__":
 
     # Get dataset
     validationFraction = 0.1
-    datasetpath = 'dataset/samMasks'
+    # datasetpath = 'dataset/samMasks'
+    datasetpath = 'dataset/diodeMasks'
     dataset = SAM_Dataset(dataPath=datasetpath, common_transform=common_transforms,input_transform=input_transforms)
+
+    # # Define the indices of the first 10 images
+    # subset_indices = list(range(10))
+    # # Create the subset dataset
+    # subset_dataset = Subset(dataset, subset_indices)
+    # dataset = subset_dataset
+
     dataset_split = train_val_dataset(dataset,val_split=validationFraction)
     trainingSet = dataset_split['train']
     validationSet = dataset_split['val']
@@ -130,8 +142,8 @@ if __name__ == "__main__":
 
     # Define Training parameters
     n_epochs = 10
-    batchsize = 16
-    lr = 1e-3
+    batchsize = 24
+    lr = 1e-4
 
     # Get dataloaders
     trainingLoader = DataLoader(dataset=trainingSet,
@@ -145,7 +157,9 @@ if __name__ == "__main__":
 
     # Define Cost function and optimizer
     optimizer = torch.optim.Adam(studentModel.parameters(), lr=lr)
-    loss_function = UnorderedMultiLabelImageSegmentationLoss(num_iters=20, reg=0.1)
+    # loss_function = UnorderedMultiLabelImageSegmentationLoss(num_iters=20, reg=0.1)
+    loss_function = lsses.BCEDiceLoss(alpha=1,
+                                      beta=1)
 
 
     # Main training loop
@@ -171,7 +185,7 @@ if __name__ == "__main__":
                 #binarised_output = convert_to_binary_mask(output)
 
                 # Calculate loss
-                loss_1 = loss_function(output,gt_output)
+                loss_1 = loss_function(output,gt_output.type(torch.float))
                 # pixelWise_loss = 
                 # coherence_loss = 
 
@@ -207,7 +221,7 @@ if __name__ == "__main__":
 
             # Calculate loss
             # loss_1 = loss.pixel_wise_loss(student_output=output,teacher_output=gt_output)
-            loss_1 = loss_function(output,gt_output)
+            loss_1 = loss_function(output,gt_output.type(torch.float))
 
             avg_val_loss += loss_1.item()
             batches += 1
