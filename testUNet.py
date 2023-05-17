@@ -3,6 +3,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, Subset
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
 
 import torch.nn.functional as F
 
@@ -33,6 +34,32 @@ def apply_filter(tensor):
 
     return most_common_values
 
+def remove_small_regions(
+    mask: np.ndarray, area_thresh: float, mode: str
+) -> np.ndarray:
+    """
+    Removes small disconnected regions and holes in a mask. Returns the
+    mask and an indicator of if the mask has been modified.
+    """
+    # import cv2  # type: ignore
+
+    assert mode in ["holes", "islands"]
+    correct_holes = mode == "holes"
+    working_mask = (correct_holes ^ mask).astype(np.uint8)
+    n_labels, regions, stats, _ = cv2.connectedComponentsWithStats(working_mask, 8)
+    sizes = stats[:, -1][1:]  # Row 0 is background label
+    small_regions = [i + 1 for i, s in enumerate(sizes) if s < area_thresh]
+    if len(small_regions) == 0:
+        return mask
+    fill_labels = [0] + small_regions
+    if not correct_holes:
+        fill_labels = [i for i in range(n_labels) if i not in fill_labels]
+        # If every region is below threshold, keep largest
+        if len(fill_labels) == 0:
+            fill_labels = [int(np.argmax(sizes)) + 1]
+    mask = np.isin(regions, fill_labels)
+    return mask
+
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -42,7 +69,7 @@ if __name__ == "__main__":
     n_channels = 1
     n_classes = 10
     # studentModel = unet_model.UNet(channel_depth=channel_depth,n_channels=n_channels,n_classes=n_classes).to(device)
-    studentModel = smp.Unet('vgg16', 
+    studentModel = smp.Unet('resnet34', 
                             classes=10).to(device=device)
 
     # Apply weights
@@ -65,7 +92,7 @@ if __name__ == "__main__":
 
     testloader = DataLoader(test_data,
                             batch_size=1,
-                            shuffle=False)
+                            shuffle=True)
     
     checkpoint_path_sam = "checkpoint/sam_vit_b_01ec64.pth"
 
@@ -81,6 +108,7 @@ if __name__ == "__main__":
         # Apply argmax to get the instance label with the highest score for each pixel
         _, instance_masks = torch.max(logits, dim=3)
 
+        area_thresh = 100
         filtered_mask = apply_filter(instance_masks)
         filtered_mask = apply_filter(filtered_mask)
 
@@ -91,6 +119,9 @@ if __name__ == "__main__":
         masked_img = np.asarray(instance_masks.squeeze().detach().cpu().numpy().T)
         filtered_mask = np.asarray(filtered_mask.squeeze().detach().cpu().numpy().T)
         sam_gt_img = np.asarray(sam_gt)
+
+        filtered_mask = remove_small_regions(filtered_mask,area_thresh=area_thresh,mode="islands")
+        filtered_mask = remove_small_regions(filtered_mask,area_thresh=area_thresh,mode="holes")
 
         # Plot the images side by side
         fig, axes = plt.subplots(1, 4)
