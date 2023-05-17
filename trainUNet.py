@@ -106,7 +106,7 @@ if __name__ == "__main__":
     n_classes = 10
     # studentModel = unet_model.UNet(channel_depth=channel_depth,n_channels=n_channels,n_classes=n_classes)
     # studentModel = unet_model.UNet_ResNet34()
-    studentModel = smp.Unet('resnet34', 
+    studentModel = smp.UnetPlusPlus('resnet50', 
                             classes=10).to(device=device)
     # studentModel = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
     #                         n_channels=n_channels, n_classes=n_classes, channel_depth=32, pretrained=True)
@@ -141,9 +141,10 @@ if __name__ == "__main__":
 
 
     # Define Training parameters
-    n_epochs = 50
-    batchsize = 24
-    lr = 15e-5
+    patience = 20
+    n_epochs = 100
+    batchsize = 8
+    lr = 3e-4
 
     # Get dataloaders
     trainingLoader = DataLoader(dataset=trainingSet,
@@ -164,6 +165,9 @@ if __name__ == "__main__":
 
     # Main training loop
     best_val = 100000
+    best_epoch = 0
+    patience_counter = 0
+
 
     for epoch in range(n_epochs):
         print("Running Epoch " + str(epoch+1) + " of " + str(n_epochs))
@@ -225,12 +229,23 @@ if __name__ == "__main__":
 
             avg_val_loss += loss_1.item()
             batches += 1
+        
 
-        print("Average Validation Loss: " + str(avg_val_loss/batches))
+        avg_val_loss /= batches
+        print("Average Validation Loss: " + str(avg_val_loss))
 
         # Save model parameters if validation cost is best
         if avg_val_loss < best_val:
-            torch.save(studentModel.state_dict(), 'checkpoint/best_model.pth') 
+            torch.save(studentModel.state_dict(), 'checkpoint/best_model.pth')
+            best_val = avg_val_loss
+            best_epoch = epoch + 1
+            print("best validation score")
+            patience_counter = 0
+        else:
+            patience_counter += 1
+        if patience_counter > patience:
+            print(f"Patience stop was triggered. Best validation loss: {best_val} at epoch {best_epoch}")
+            break
 
         # Save checkpoint if best
         
